@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   colors,
   accentColors,
@@ -24,12 +24,7 @@ import {
   normalizeSubscription,
   normalizeTransaction,
 } from "./utils/normalizers";
-import {
-  loadBucketTransfers,
-  loadDebts,
-  loadSubscriptions,
-  loadTransactions,
-} from "./utils/storage";
+import { validateImport } from "./utils/budgetDocument";
 import { createBudgetBackupText, readBudgetBackupText } from "./utils/backup";
 
 import HomeTab from "./components/HomeTab";
@@ -46,14 +41,6 @@ const DEFAULT_BUCKET_LABELS = {
   savings: moneyBuckets[2] || "Savings",
 };
 
-const STORAGE_KEYS = {
-  expenseCustomCategories: "expenseCustomCategories",
-  incomeCustomCategories: "incomeCustomCategories",
-  hiddenExpenseCategories: "hiddenExpenseCategories",
-  hiddenIncomeCategories: "hiddenIncomeCategories",
-  bucketLabels: "bucketLabels",
-  creditCards: "creditCards",
-};
 
 const TAB_OPTIONS = [
   { key: "home", label: "Home" },
@@ -114,28 +101,6 @@ const getSubscriptionStatusMeta = (daysUntilDue) => {
   };
 };
 
-function readStoredArray(key) {
-  try {
-    const raw = localStorage.getItem(key);
-    const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function readStoredObject(key, fallback) {
-  try {
-    const raw = localStorage.getItem(key);
-    const parsed = raw ? JSON.parse(raw) : fallback;
-    return parsed && typeof parsed === "object"
-      ? { ...fallback, ...parsed }
-      : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
 function normalizeCreditCard(card) {
   const rawHistory = Array.isArray(card?.history) ? card.history : [];
 
@@ -166,7 +131,7 @@ function normalizeCreditCard(card) {
   };
 }
 
-function App() {
+function App({ initialData, onDataChange }) {
   const today = getTodayString();
 
   // -------------------- base app state --------------------
@@ -187,7 +152,7 @@ function App() {
   const [selectedTransactionId, setSelectedTransactionId] = useState(null);
   const [editingTransactionId, setEditingTransactionId] = useState(null);
 
-  const [transactions, setTransactions] = useState(loadTransactions);
+  const [transactions, setTransactions] = useState(() => initialData.transactions);
   const [openIncomeMonths, setOpenIncomeMonths] = useState({});
   const [openExpenseMonths, setOpenExpenseMonths] = useState({});
 
@@ -203,7 +168,7 @@ function App() {
   const [transferFrom, setTransferFrom] = useState("digital");
   const [transferTo, setTransferTo] = useState("savings");
   const [transferNote, setTransferNote] = useState("");
-  const [bucketTransfers, setBucketTransfers] = useState(loadBucketTransfers);
+  const [bucketTransfers, setBucketTransfers] = useState(() => initialData.bucketTransfers);
   const [moneyTotalsStartDate, setMoneyTotalsStartDate] = useState("");
 
   // -------------------- subscriptions state --------------------
@@ -216,13 +181,13 @@ function App() {
   const [subscriptionCustomIntervalDays, setSubscriptionCustomIntervalDays] =
     useState(DEFAULT_SUBSCRIPTION_CUSTOM_INTERVAL_DAYS);
   const [subscriptionNote, setSubscriptionNote] = useState("");
-  const [subscriptions, setSubscriptions] = useState(loadSubscriptions);
+  const [subscriptions, setSubscriptions] = useState(() => initialData.subscriptions.map(normalizeSubscription));
 
   // -------------------- debt state --------------------
   const [debtName, setDebtName] = useState("");
   const [debtAmount, setDebtAmount] = useState("");
   const [debtNote, setDebtNote] = useState("");
-  const [debts, setDebts] = useState(loadDebts);
+  const [debts, setDebts] = useState(() => initialData.debts.map(normalizeDebt));
   const [editingDebtId, setEditingDebtId] = useState(null);
   const [editingDebtName, setEditingDebtName] = useState("");
   const [editingDebtNote, setEditingDebtNote] = useState("");
@@ -236,7 +201,7 @@ function App() {
   const [creditCardDueDate, setCreditCardDueDate] = useState(today);
   const [creditCardNote, setCreditCardNote] = useState("");
   const [creditCards, setCreditCards] = useState(() =>
-    readStoredArray(STORAGE_KEYS.creditCards).map((item) => normalizeCreditCard(item))
+    initialData.creditCards.map((item) => normalizeCreditCard(item))
   );
   const [creditCardActionAmounts, setCreditCardActionAmounts] = useState({});
   const [creditCardActionNotes, setCreditCardActionNotes] = useState({});
@@ -244,23 +209,23 @@ function App() {
 
   // -------------------- custom categories + bucket labels --------------------
   const [customExpenseCategories, setCustomExpenseCategories] = useState(() =>
-    readStoredArray(STORAGE_KEYS.expenseCustomCategories)
+    initialData.customExpenseCategories
   );
   const [customIncomeCategories, setCustomIncomeCategories] = useState(() =>
-    readStoredArray(STORAGE_KEYS.incomeCustomCategories)
+    initialData.customIncomeCategories
   );
   const [hiddenExpenseCategories, setHiddenExpenseCategories] = useState(() =>
-    readStoredArray(STORAGE_KEYS.hiddenExpenseCategories)
+    initialData.hiddenExpenseCategories
   );
   const [hiddenIncomeCategories, setHiddenIncomeCategories] = useState(() =>
-    readStoredArray(STORAGE_KEYS.hiddenIncomeCategories)
+    initialData.hiddenIncomeCategories
   );
   const [newExpenseCategory, setNewExpenseCategory] = useState("");
   const [newIncomeCategory, setNewIncomeCategory] = useState("");
   const [categoryReassignState, setCategoryReassignState] = useState(null);
 
   const [bucketLabels, setBucketLabels] = useState(() =>
-    readStoredObject(STORAGE_KEYS.bucketLabels, DEFAULT_BUCKET_LABELS)
+    ({ ...DEFAULT_BUCKET_LABELS, ...initialData.bucketLabels })
   );
 
   // -------------------- import / export state --------------------
@@ -298,7 +263,7 @@ function App() {
   const getBucketLabel = (bucketKey) =>
     bucketLabels[bucketKey] || DEFAULT_BUCKET_LABELS[bucketKey];
 
-  const normalizeBucketKey = (value) => {
+  const normalizeBucketKey = useCallback((value) => {
     if (value === "digital" || value === "wallet" || value === "savings") {
       return value;
     }
@@ -312,10 +277,10 @@ function App() {
     if (value === bucketLabels.savings) return "savings";
 
     return "digital";
-  };
+  }, [bucketLabels]);
 
-  const getDefaultCategoryForType = (nextType) =>
-    nextType === "expense" ? allExpenseCategories[0] : allIncomeCategories[0];
+  const getDefaultCategoryForType = useCallback((nextType) =>
+    nextType === "expense" ? allExpenseCategories[0] : allIncomeCategories[0], [allExpenseCategories, allIncomeCategories]);
 
   const makeDefaultSplitRows = (nextType) => {
     const categories =
@@ -432,7 +397,7 @@ function App() {
         to: normalizeBucketKey(safeTransfer.to),
       };
     });
-  }, [bucketTransfers, bucketLabels]);
+  }, [bucketTransfers, normalizeBucketKey]);
 
   const normalizedTransactions = useMemo(() => {
     return transactions.map((transaction) => ({
@@ -493,18 +458,6 @@ function App() {
   const totalBalanceIncludingSavings = useMemo(() => {
     return transactionBalance;
   }, [transactionBalance]);
-
-  const totalIncome = useMemo(() => {
-    return normalizedTransactions
-      .filter((transaction) => transaction.type === "income")
-      .reduce((sum, transaction) => sum + Math.abs(transaction.amount), 0);
-  }, [normalizedTransactions]);
-
-  const totalExpenses = useMemo(() => {
-    return normalizedTransactions
-      .filter((transaction) => transaction.type === "expense")
-      .reduce((sum, transaction) => sum + Math.abs(transaction.amount), 0);
-  }, [normalizedTransactions]);
 
   const filteredMoneyTotalsTransactions = useMemo(() => {
     if (!moneyTotalsStartDate) return normalizedTransactions;
@@ -751,7 +704,7 @@ function App() {
     let parsed;
 
     try {
-      parsed = await readBudgetBackupText(raw);
+      parsed = validateImport(await readBudgetBackupText(raw));
     } catch {
       showToast("That text is not valid import data.", "error");
       return;
@@ -814,7 +767,7 @@ function App() {
     openConfirm({
       title: "Replace saved data?",
       message:
-        "Importing will replace your current saved app data on this device.",
+        "Importing will replace your current saved budget data in this session. Account changes also sync to the cloud.",
       confirmLabel: "Import Data",
       destructive: true,
       onConfirm: () => {
@@ -1493,7 +1446,7 @@ function App() {
     openConfirm({
       title: "Clear everything?",
       message:
-        "This will permanently remove transaction history, transfer history, subscriptions, debts, and credit cards on this device.",
+        "This will permanently remove transaction history, transfer history, subscriptions, debts, and credit cards in this session. Account changes also sync to the cloud.",
       confirmLabel: "Clear Data",
       destructive: true,
       onConfirm: () => {
@@ -1504,12 +1457,6 @@ function App() {
         setCreditCards([]);
         setOpenIncomeMonths({});
         setOpenExpenseMonths({});
-        localStorage.removeItem("transactions");
-        localStorage.removeItem("bucketTransfers");
-        localStorage.removeItem("subscriptions");
-        localStorage.removeItem("debtsOwedToMe");
-        localStorage.removeItem(STORAGE_KEYS.creditCards);
-        localStorage.removeItem("balance");
         resetForm();
         resetTransferForm();
         resetSubscriptionForm();
@@ -1794,14 +1741,14 @@ function App() {
   const toggleIncomeMonth = (monthKey) => {
     setOpenIncomeMonths((prev) => ({
       ...prev,
-      [monthKey]: !prev[monthKey],
+      [monthKey]: !(prev[monthKey] ?? true),
     }));
   };
 
   const toggleExpenseMonth = (monthKey) => {
     setOpenExpenseMonths((prev) => ({
       ...prev,
-      [monthKey]: !prev[monthKey],
+      [monthKey]: !(prev[monthKey] ?? true),
     }));
   };
 
@@ -1865,7 +1812,7 @@ function App() {
     return filteredTransactions.filter((transaction) => transaction.type === "expense");
   }, [filteredTransactions]);
 
-  const sortItems = (items) => {
+  const sortItems = useCallback((items) => {
     const sorted = [...items];
 
     sorted.sort((a, b) => {
@@ -1885,9 +1832,9 @@ function App() {
     });
 
     return sorted;
-  };
+  }, [sortOption]);
 
-  const groupedByMonth = (items) => {
+  const groupedByMonth = useCallback((items) => {
     const sorted = sortItems(items).map((item) => ({
       ...normalizeTransaction(item),
       refunded: Boolean(item.refunded),
@@ -1909,15 +1856,15 @@ function App() {
     }
 
     return groups;
-  };
+  }, [sortItems]);
 
   const incomeGroups = useMemo(
     () => groupedByMonth(incomeTransactions),
-    [incomeTransactions, sortOption]
+    [incomeTransactions, groupedByMonth]
   );
   const expenseGroups = useMemo(
     () => groupedByMonth(expenseTransactions),
-    [expenseTransactions, sortOption]
+    [expenseTransactions, groupedByMonth]
   );
 
   const orderedIncomeMonths = useMemo(() => {
@@ -2098,90 +2045,28 @@ function App() {
     };
   }, []);
 
-  // -------------------- persistence --------------------
+  // Publish one coherent snapshot after each render; the session owns persistence.
   useEffect(() => {
-    localStorage.setItem("transactions", JSON.stringify(normalizedTransactions));
-  }, [normalizedTransactions]);
+    onDataChange({ schemaVersion: 1, transactions: normalizedTransactions,
+      bucketTransfers: normalizedBucketTransfers, subscriptions, debts,
+      creditCards: normalizedCreditCards, customExpenseCategories, customIncomeCategories,
+      hiddenExpenseCategories, hiddenIncomeCategories, bucketLabels });
+  }, [onDataChange, normalizedTransactions, normalizedBucketTransfers, subscriptions, debts,
+    normalizedCreditCards, customExpenseCategories, customIncomeCategories,
+    hiddenExpenseCategories, hiddenIncomeCategories, bucketLabels]);
 
-  useEffect(() => {
-    localStorage.setItem("bucketTransfers", JSON.stringify(normalizedBucketTransfers));
-  }, [normalizedBucketTransfers]);
-
-  useEffect(() => {
-    localStorage.setItem("subscriptions", JSON.stringify(subscriptions));
-  }, [subscriptions]);
-
-  useEffect(() => {
-    localStorage.setItem("debtsOwedToMe", JSON.stringify(debts));
-  }, [debts]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.creditCards, JSON.stringify(normalizedCreditCards));
-  }, [normalizedCreditCards]);
-
-  useEffect(() => {
-    localStorage.setItem("balance", String(transactionBalance));
-  }, [transactionBalance]);
-
-  useEffect(() => {
-    localStorage.setItem(
-      STORAGE_KEYS.expenseCustomCategories,
-      JSON.stringify(customExpenseCategories)
-    );
-  }, [customExpenseCategories]);
-
-  useEffect(() => {
-    localStorage.setItem(
-      STORAGE_KEYS.incomeCustomCategories,
-      JSON.stringify(customIncomeCategories)
-    );
-  }, [customIncomeCategories]);
-
-  useEffect(() => {
-    localStorage.setItem(
-      STORAGE_KEYS.hiddenExpenseCategories,
-      JSON.stringify(hiddenExpenseCategories)
-    );
-  }, [hiddenExpenseCategories]);
-
-  useEffect(() => {
-    localStorage.setItem(
-      STORAGE_KEYS.hiddenIncomeCategories,
-      JSON.stringify(hiddenIncomeCategories)
-    );
-  }, [hiddenIncomeCategories]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.bucketLabels, JSON.stringify(bucketLabels));
-  }, [bucketLabels]);
-
-  useEffect(() => {
-    setOpenIncomeMonths((prev) => {
-      const updated = { ...prev };
-      for (const monthKey of orderedIncomeMonths) {
-        if (!(monthKey in updated)) updated[monthKey] = true;
-      }
-      return updated;
-    });
-  }, [orderedIncomeMonths]);
-
-  useEffect(() => {
-    setOpenExpenseMonths((prev) => {
-      const updated = { ...prev };
-      for (const monthKey of orderedExpenseMonths) {
-        if (!(monthKey in updated)) updated[monthKey] = true;
-      }
-      return updated;
-    });
-  }, [orderedExpenseMonths]);
 
   useEffect(() => {
     if (!currentCategories.includes(category) && editingTransactionId === null) {
+    // Reconcile existing form/scheduled-charge state after its source changes.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
       setCategory(getDefaultCategoryForType(type));
     }
-  }, [currentCategories, category, type, editingTransactionId]);
+  }, [currentCategories, category, type, editingTransactionId, getDefaultCategoryForType]);
 
   useEffect(() => {
+    // Reconcile existing form/scheduled-charge state after its source changes.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSplitRows((prev) =>
       prev.map((row) => ({
         ...row,
@@ -2233,6 +2118,8 @@ function App() {
 
     if (!subscriptionsChanged) return;
 
+    // Reconcile existing form/scheduled-charge state after its source changes.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSubscriptions(updatedSubscriptions);
     if (newTransactions.length > 0) {
       setTransactions((prev) => {
@@ -2259,7 +2146,6 @@ function App() {
  const inputStyle = {
   padding: "10px",
   borderRadius: "6px",
-  border: "1px solid #ccc",
   width: "100%",
   minWidth: 0,
   minHeight: "48px",
@@ -2561,7 +2447,7 @@ function App() {
           orderedMonths.map((monthKey) => {
             const monthTransactions = groups[monthKey];
             const monthTotal = getMonthTotal(monthTransactions);
-            const isOpen = openMonths[monthKey];
+            const isOpen = openMonths[monthKey] ?? true;
 
             return (
               <div key={monthKey} style={{ marginBottom: "14px" }}>

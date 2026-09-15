@@ -1,0 +1,26 @@
+.account-page, .account-prompt, .session-bar { font-family: inherit; color: #f3f4f6; }
+.account-page { min-height: 100dvh; display: grid; place-items: center; background: #0f1115; padding: 28px 16px; box-sizing: border-box; }
+.account-card { width: min(100%, 450px); background: #171a21; border: 1px solid #2a2f3a; border-radius: 16px; padding: clamp(20px, 5vw, 36px); box-sizing: border-box; }
+.account-card h1 { font-size: 2rem; margin: 10px 0; color: #f3f4f6; }
+.account-card h2 { font-size: 1.15rem; margin-top: 28px; color: #f3f4f6; }
+.account-eyebrow { color: #60a5fa; letter-spacing: .12em; font-size: .7rem; }
+.account-muted { color: #a1a1aa; font-size: .9rem; line-height: 1.6; }
+.account-card label { display: grid; gap: 7px; margin: 16px 0; font-size: .9rem; }
+.account-card input { width: 100%; min-height: 46px; box-sizing: border-box; color: #f3f4f6; background: #0f1115; border: 1px solid #2a2f3a; border-radius: 6px; padding: 10px; font: inherit; }
+.account-card button, .session-bar button, .account-prompt button { color: #f3f4f6; background: #1d2330; border: 1px solid #3b4559; border-radius: 6px; padding: 10px 14px; min-height: 44px; font: inherit; cursor: pointer; }
+.account-card button:disabled, .session-bar button:disabled, .account-prompt button:disabled { opacity: .5; cursor: wait; }
+.account-card .account-primary { width: 100%; background: #2d6cdf; border-color: #2d6cdf; }
+.account-links { display: flex; justify-content: space-between; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+.account-links button { background: transparent; font-size: .85rem; }
+.account-demo { border-top: 1px solid #2a2f3a; margin-top: 24px; padding-top: 12px; text-align: center; }
+.account-demo button { width: 100%; border-color: #60a5fa; }
+.account-error { color: #ffabab; }
+.account-notice, .account-prompt { padding: 18px; background: #171a21; border: 1px solid #3b4559; border-radius: 8px; line-height: 1.5; }
+.account-prompt { max-width: 900px; margin: 16px auto; }
+.account-prompt button { margin: 5px; }
+.session-bar { display: flex; gap: 12px; align-items: center; justify-content: space-between; background: #131720; padding: 12px 20px; border-bottom: 1px solid #2a2f3a; flex-wrap: wrap; }
+.session-bar strong { font-size: .9rem; overflow-wrap: anywhere; }
+.session-bar span { display: block; font-size: .8rem; color: #a1a1aa; margin-top: 4px; }
+.session-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.account-card :focus-visible, .session-bar :focus-visible, .account-prompt :focus-visible { outline: 2px solid #60a5fa; outline-offset: 3px; }
+@media (max-width: 500px) { .session-bar { padding: 12px; } .session-actions { width: 100%; } .session-actions button { flex: 1; font-size: .85rem; } .account-prompt { margin: 12px; } }

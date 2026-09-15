@@ -10,8 +10,6 @@ export default function MoneyTab({
   moneyTotalsStartDate,
   setMoneyTotalsStartDate,
   getBucketLabel,
-  digitalBalanceTotal,
-  walletTotal,
   savingsTotal,
   spendableBalance,
   totalBalanceIncludingSavings,

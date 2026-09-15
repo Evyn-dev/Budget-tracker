@@ -1,65 +1,62 @@
 # Budget Tracker
 
-A mobile-friendly personal budget app built with React 19, JavaScript, and Vite 8. This repository preserves the supplied current app, including its interface, behavior, filenames, and imports.
+The existing React + Vite budget app, with Supabase email accounts, per-user cloud autosave, and a public browser-only demo. The original budgeting interface and QBUD2 backup format are preserved.
 
 ## Features
 
-- Income, expenses, paychecks, card/cash payments, split transactions, and refunds
-- Digital, Wallet, and Savings buckets, customizable labels, and transfers
-- Subscriptions, debts, credit cards, and card payment/charge history
-- Custom and hidden categories; transaction search, sorting, and filters
-- Weekly/monthly recaps and import/export backups
+- Income/expenses, paychecks, card/cash handling, split transactions, and refunds
+- Digital, Wallet, and Savings balances, labels, and transfers
+- Subscriptions, debts, credit cards and payment/charge history
+- Custom/hidden categories and reassignment, search, sort, filters, weekly/monthly recaps
+- Import/export, mobile navigation and swipe behavior
+- Sign in, signup, email confirmation, password reset, and persistent sessions
+- Debounced cloud saves with recovery copies and conflict detection
+- Editable fictional demo data, Reset Demo Data, and Exit Demo
 
 ## Local setup
 
-Use Node.js 22.12+ in the Node 22 release line and npm.
+Use Node 24.x and npm (Node 22.12+ is also supported by the build tooling).
 
 ```sh
-git clone https://github.com/Evyn-dev/Budget-tracker.git
-cd Budget-tracker
 npm ci
 npm run dev
 ```
 
-Open the URL printed by Vite. The development server listens on all network interfaces, as in the supplied configuration.
-
-## Commands
+Try Demo works without environment variables. For real accounts, configure Supabase and copy `.env.example` to a root `.env.local`, filling in `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`. Never put service-role keys or other secrets in browser configuration.
 
 ```sh
-npm run build    # Production output: dist/
-npm run preview  # Serve the build locally
-npm run lint     # Existing ESLint checks
+npm test
+npm run lint
+npm run build
+npm run preview
 ```
 
-Commit package-lock.json when dependencies change. Develop on branches and merge verified changes into main.
+Tests cover auth UI, account persistence, migration, demo, backup compatibility, queue failures/conflicts, and the actual SQL migration/RLS using local PostgreSQL through PGlite. Hosted email/auth integration still requires a configured Supabase project.
 
-## Data and environment variables
+## Supabase and Vercel
 
-Data is saved in browser localStorage. This version has no Supabase login or cloud sync; that integration is deferred. No app environment variables are required, so no .env.example is needed.
+Follow [Supabase setup and release checklist](docs/SUPABASE_SETUP.md) before pushing `main`. It includes the SQL migration, auth URLs, email delivery, Vercel variables, tests, and recovery behavior.
 
-Export a backup from the live app before migration. Data belongs to the exact site origin and browser profile; localhost and preview URLs have separate storage. Keeping the production origin unchanged preserves access to its local data if browser storage is retained. Backups contain personal financial data and should not be committed.
+The existing Vercel project uses repository root, Vite, `npm ci`, `npm run build`, `dist`, and Node 24.x. Production remains at https://budget-tracker-theta-indol.vercel.app/. Pushing `main` triggers production deployment. Keep the existing project/domain assignments; do not create a second project.
 
-Environment files and Vercel metadata are ignored. The supplied local Vercel token is not needed to build or run this app and is excluded from the repository. Never put secrets in VITE_ variables, which are exposed to the browser.
+## Data storage
 
-## Connect the existing Vercel project
+Cloud budgets live in `public.user_budget_data`, one versioned JSONB document per user, protected by RLS. No Blob or Supabase Storage bucket is needed. Demo data never enters Supabase. Existing browser data is offered for migration into an empty account and is never destructively removed.
 
-This source migration does not change or deploy the Vercel project.
+Unsaved work is retained in a per-account local recovery copy; concurrent edits trigger a conflict instead of silently overwriting. Legacy data, recovery copies, and backups are private financial data: use a trusted browser profile and keep exports out of Git.
 
-1. Export a backup and record the exact current production URL.
-2. Open the existing Vercel project, then Settings > Git. Connect Evyn-dev/Budget-tracker, authorizing GitHub access if prompted.
-3. Set production branch to main. Use repository root as Root Directory, Vite as Framework Preset, npm ci as Install Command, npm run build as Build Command, and dist as Output Directory. Use compatible Node.js, such as Node 22.12+.
-4. Keep the existing project name and domain assignments. No replacement project or DNS change is needed. No app environment variables need to be added.
-5. When ready to update production, create a deployment of main in Vercel, verify the build, and check the app at its existing production URL. Future pushes to main deploy automatically after Git is connected.
+## Architecture
 
-For a preview first, push a development branch after connecting Git and test its preview before promoting a verified deployment. Preview URLs have separate browser storage.
-
-References: [GitHub integration](https://vercel.com/docs/git/vercel-for-github), [Git deployments](https://vercel.com/docs/git), [production domains](https://vercel.com/docs/domains/working-with-domains/deploying-and-redirecting).
+- `src/Root.jsx`: auth lifecycle and mode selection
+- `src/components/AuthScreen.jsx`: sign-in, signup, password reset and demo entry
+- `src/components/BudgetSession.jsx`: account/demo loading, migration and status UI
+- `src/App.jsx`: existing budgeting state and UI, publishing complete snapshots
+- `src/utils/cloudStorage.js`: authenticated repository and serialized save queue
+- `src/utils/storage.js`: separate demo, legacy and per-user local storage
+- `src/utils/budgetDocument.js`: versioning and validation
+- `src/utils/demoData.js`: fictional sample dataset
+- `supabase/migrations/`: database schema, RLS and revision-safe save function
 
 ## License
 
 MIT; see LICENSE.
-
-## Migration verification
-
-npm ci and npm run build passed with Node 24.14.1. The supplied app code and lockfile were preserved. npm run lint reports 15 existing errors and 4 warnings (React hook checks, unused variables, and a duplicate style key); these do not block the Vite build and were left unchanged to keep this migration focused.
-
