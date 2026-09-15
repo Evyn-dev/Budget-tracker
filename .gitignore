@@ -1,0 +1,26 @@
+# Dependencies and builds
+node_modules/
+dist/
+dist-ssr/
+.vercel/
+
+# Environment files
+.env
+.env.*
+!.env.example
+*.local
+
+# Logs and editor/OS junk
+logs/
+*.log
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.code-workspace
