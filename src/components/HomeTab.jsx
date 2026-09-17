@@ -58,6 +58,7 @@ export default function HomeTab({
   toggleExpenseMonth,
   expenseBreakdown,
   accentColors,
+  weeklySummaryData,
   lastPaycheckTransaction,
   spentSinceLastPaycheck,
   remainingFromLastPaycheck,

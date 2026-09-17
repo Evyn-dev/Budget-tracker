@@ -24,9 +24,3 @@ Desktop.ini
 *.sln
 *.sw?
 *.code-workspace
-
-# Local verification output and Supabase CLI state
-*.local.json
-supabase/.temp/
-supabase/.branches/
-coverage/
