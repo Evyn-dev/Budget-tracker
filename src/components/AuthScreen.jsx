@@ -43,6 +43,7 @@ export default function AuthScreen({ client, onDemo, recovering = false, onRecov
       <p className="account-muted">Track income, expenses, savings, subscriptions, debts, and credit activity in one place.</p>
       {!client && <p className="account-notice">Cloud accounts are not configured yet. Explore the complete app with fictional demo data.</p>}
       <h2>{kind === 'recovery' ? 'Choose a new password' : kind === 'reset' ? 'Reset your password' : label}</h2>
+      <p className="account-muted">Note: Password resets currently do not work.</p>
       <form onSubmit={submit}>
         {kind !== 'recovery' && <label>Email<input type="email" autoComplete="email" required value={email} onChange={e => setEmail(e.target.value)} disabled={busy} /></label>}
         {kind !== 'reset' && <label>Password<input type="password" autoComplete={kind === 'signin' ? 'current-password' : 'new-password'} minLength={kind === 'signin' ? 1 : 8} required value={password} onChange={e => setPassword(e.target.value)} disabled={busy} /></label>}

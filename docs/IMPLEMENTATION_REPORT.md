@@ -2,6 +2,8 @@
 
 ## Release status
 
+September 17: the user explicitly approved publishing to main with a visible note that password resets currently do not work. The auth screen includes that note. This approval supersedes the earlier release hold below; unresolved test items remain documented.
+
 Implemented locally on `codex/accounts-cloud-demo`, checkpoint `9fc0855c8ffbdee5f460ac8d74048305a608e142`. Hosted setup is now configured. No accounts code has been pushed to `main` or deployed to production. Forge is untouched. Production continues to serve the previous browser-local version. **Not ready for release approval: password-reset completion and remaining hosted checks are still pending.**
 
 ## Hosted setup and verification — September 15, 2026
@@ -25,6 +27,8 @@ Password-reset retesting is deferred at the user's request. The user authorized 
 - Demo backup export/import also restored its original categories after a temporary edit. No cloud budget changes resulted.
 
 ### Remaining hosted checks
+
+September 17 follow-up: recovery links now open account mode even when the tab previously used Demo Mode. Once Supabase emits PASSWORD_RECOVERY, the recovery screen survives refresh using a tab-local user-ID marker. The marker is UI state only, contains no token or password, is restricted to the matching authenticated account, and is cleared on successful password update or sign-out. Failed password updates keep the form available. All 26 tests, lint, and build pass. A fresh hosted reset email was accepted, but the user reports the link does not work; the exact symptom is awaiting clarification. Password-reset completion is still unverified.
 
 Complete a fresh reset email and new-password submission after the sender limit clears, then verify login with the new password. The last successful reset email was sent at 18:25:59 UTC (2:25:59 PM Eastern); allow the default sender's hourly window to clear before requesting another. Hosted offline/retry recovery and Start Fresh/failed legacy upload checks on a separate test account/profile remain pending. Automated tests cover these paths but do not replace hosted verification. No production merge or deployment is approved.
 

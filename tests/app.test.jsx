@@ -48,6 +48,33 @@ async function tab(name) {
 }
 
 describe('authentication and app persistence', () => {
+  it('opens recovery from demo mode, retains it on refresh, and clears it only after success', async () => {
+    sessionStorage.setItem('budget-mode', 'demo');
+    window.history.replaceState(null, '', '/#type=recovery');
+    const view = render(<Root />);
+    await waitFor(() => expect(mock.client.auth.onAuthStateChange).toHaveBeenCalled());
+    act(() => emit('PASSWORD_RECOVERY', { user: users['a@example.test'] }));
+    await screen.findByRole('button', { name: 'Update Password' });
+    expect(sessionStorage.getItem('budget-mode')).toBeNull();
+    window.history.replaceState(null, '', '/');
+    view.unmount(); render(<Root />);
+    await screen.findByRole('button', { name: 'Update Password' });
+    mock.client.auth.updateUser.mockResolvedValueOnce({ error: new Error('Try a different password') });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'new-password' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Update Password' }));
+    await screen.findByText('Try a different password');
+    expect(sessionStorage.getItem('budget-recovery-user')).toBe('a');
+    fireEvent.click(screen.getByRole('button', { name: 'Update Password' }));
+    await screen.findByRole('button', { name: 'Sign Out' });
+    expect(sessionStorage.getItem('budget-recovery-user')).toBeNull();
+  });
+  it('does not show another account the previous account recovery screen', async () => {
+    sessionStorage.setItem('budget-recovery-user', 'a');
+    session = { user: users['b@example.test'] };
+    render(<Root />);
+    await screen.findByRole('button', { name: 'Sign Out' });
+    expect(screen.queryByRole('button', { name: 'Update Password' })).toBeNull();
+  });
   it('explains expired email links even with a saved session and does not change the password', async () => {
     session = { user: users['a@example.test'] };
     window.history.replaceState(null, '', '/#error=access_denied&error_code=otp_expired');
